@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>PairScript 现代精致原型 (优化2)</title>
+    <style>
+        /* CSS Variables - Modern Design Language */
+        :root {
+            --bg-main: #F7F7F9;
+            --bg-content-card: #FFFFFF;
+            --bg-header-footer: rgba(247, 247, 249, 0.85); 
+            --bg-accent-soft: rgba(179, 143, 178, 0.1); 
+
+            --text-primary: #1A1A1A;
+            --text-secondary: #8E8E93;
+            --text-on-accent: #FFFFFF;
+
+            --accent-primary: #B38FB2;
+            --accent-primary-hover: #A37FA2;
+            --accent-secondary: #A9A9B0; 
+
+            --border-subtle: #E5E5EA; 
+            --border-interactive: #D1D1D6;
+
+            --font-family-system: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+            
+            --radius-standard: 12px; 
+            --radius-medium: 10px;
+            --radius-small: 8px;
+            --radius-pill: 50px; 
+            
+            --shadow-card: 0 4px 15px rgba(0, 0, 0, 0.06); 
+            --shadow-interactive: 0 2px 8px rgba(0, 0, 0, 0.08);
+            --shadow-fab: 0 6px 20px rgba(179, 143, 178, 0.3);
+        }
+
+        /* Global Reset & Base Styles */
+        *, *::before, *::after { box-sizing: border-box; }
+        html { font-size: 16px; -webkit-text-size-adjust: 100%; }
+        body {
+            margin: 0;
+            font-family: var(--font-family-system);
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+            line-height: 1.55; 
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* App Container */
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            width: 100%;
+            max-width: 450px;
+            margin: 0 auto;
+            background-color: var(--bg-main);
+            box-shadow: 0 0 25px rgba(0,0,0,0.04);
+        }
+
+        /* Common Header Style - MODIFIED for left-aligned title */
+        .app-header {
+            padding: 0 16px; /* Adjusted padding to align title correctly with content */
+            padding-top: env(safe-area-inset-top);
+            display: flex;
+            /* justify-content: flex-start; /* MODIFIED: Left-align content (title) */
+            align-items: center;
+            border-bottom: 1px solid var(--border-subtle);
+            background-color: var(--bg-header-footer);
+            backdrop-filter: blur(18px) saturate(180%);
+            -webkit-backdrop-filter: blur(18px) saturate(180%);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            height: calc(56px + env(safe-area-inset-top)); /* Explicit height for consistency, includes safe area */
+        }
+        .app-header .app-title {
+            font-size: 1.0625rem; /* Approx 17pt */
+            font-weight: 600; 
+            /* text-align: left; /* Ensure title is left-aligned */
+            /* No margin needed if it's the only element and header uses flex-start */
+        }
+
+        /* Main Content Area */
+        .app-main-content {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 16px; 
+        }
+        .tab-content { display: none; } 
+        .tab-content.active { display: block; } 
+
+        /* Bottom Tab Bar */
+        .app-tab-bar {
+            display: flex;
+            justify-content: space-around;
+            align-items: stretch;
+            background-color: var(--bg-header-footer);
+            backdrop-filter: blur(18px) saturate(180%);
+            -webkit-backdrop-filter: blur(18px) saturate(180%);
+            border-top: 1px solid var(--border-subtle);
+            padding-bottom: env(safe-area-inset-bottom);
+            position: sticky; bottom: 0; z-index: 100;
+            height: 56px; 
+        }
+        .tab-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex-grow: 1;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: color 0.2s;
+            text-decoration: none;
+            padding: 5px 0;
+        }
+        .tab-item.active { color: var(--accent-primary); }
+        .tab-item svg { width: 22px; height: 22px; margin-bottom: 3px; fill: currentColor; }
+        .tab-item .tab-label { font-size: 0.6875rem; font-weight: 500; }
+
+        /* ----- Generic FAB Style ----- */
+        .page-fab { /* MODIFIED: Generic FAB style */
+            position: fixed;
+            bottom: calc(56px + 20px + env(safe-area-inset-bottom)); /* Tab bar height + spacing + safe area */
+            right: 20px;
+            background-color: var(--accent-primary);
+            color: var(--text-on-accent);
+            width: 56px; height: 56px;
+            border-radius: 50%;
+            display: flex; /* Initially hidden, shown by JS */
+            align-items: center;
+            justify-content: center;
+            box-shadow: var(--shadow-fab);
+            cursor: pointer;
+            transition: transform 0.2s ease-out, box-shadow 0.2s ease-out, opacity 0.2s ease-out;
+            z-index: 200;
+            opacity: 0; /* Hidden by default, JS will manage visibility */
+            pointer-events: none; /* Hidden by default */
+        }
+        .page-fab.visible { /* Class to show FAB */
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .page-fab:hover { transform: scale(1.05); box-shadow: 0 8px 25px rgba(179, 143, 178, 0.35); }
+        .page-fab svg { width: 26px; height: 26px; fill: currentColor; }
+
+
+        /* ----- Tab 1: 剧本 (Script) Styles (FAB id will be scriptFabButton) ----- */
+        /* .script-fab specific styles if any, otherwise it uses .page-fab */
+
+        .script-card {
+            background-color: var(--bg-content-card);
+            border-radius: var(--radius-standard);
+            margin-bottom: 20px;
+            box-shadow: var(--shadow-card);
+            padding: 16px;
+        }
+        .script-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .script-card-date { font-size: 0.85rem; color: var(--text-secondary); font-weight: 500; }
+        .script-card-meta { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--text-secondary); }
+        .script-card-meta svg { width: 16px; height: 16px; fill: var(--text-secondary); }
+        .script-card-image-placeholder {
+            background-color: #F0F0F0; 
+            height: 200px; border-radius: var(--radius-medium);
+            display: flex; align-items: center; justify-content: center;
+            color: #B0B0B0; font-style: italic; margin-bottom: 12px;
+        }
+        .script-card-text {
+            font-size: 0.95rem; line-height: 1.6; margin-bottom: 12px;
+            color: var(--text-primary);
+            overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+        }
+        .script-card-tags .tag {
+            display: inline-block; background-color: var(--bg-accent-soft);
+            color: var(--accent-primary); 
+            font-size: 0.75rem; padding: 4px 10px; border-radius: var(--radius-pill);
+            margin-right: 8px; margin-bottom: 8px; font-weight: 500;
+        }
+        .script-card-actions { display: flex; gap: 20px; align-items: center; border-top: 1px solid var(--border-subtle); padding-top: 12px; margin-top: 12px; }
+        .script-card-actions .action-button { display: flex; align-items: center; color: var(--text-secondary); font-size: 0.9rem; text-decoration: none; }
+        .script-card-actions .action-button svg { width: 18px; height: 18px; fill: var(--text-secondary); margin-right: 6px; }
+        .script-card-actions .action-button:hover, .script-card-actions .action-button.liked { color: var(--accent-primary); }
+        .script-card-actions .action-button:hover svg, .script-card-actions .action-button.liked svg { fill: var(--accent-primary); }
+        
+        /* ----- Tab 2: 章节 (Chapters) Styles (FAB id will be chaptersFabButton) ----- */
+        .chapters-page-header { 
+            margin-bottom: 24px; 
+            padding-top: 8px; 
+            display: flex; 
+            flex-direction: column;
+            align-items: flex-start; 
+        }
+        .chapters-page-header h2 { font-size: 1.6rem; font-weight: 700; margin-bottom: 4px; color: var(--text-primary); text-align: center;}
+        .chapters-page-header p { font-size: 0.95rem; color: var(--text-secondary); margin-top: 0; margin-bottom: 16px; text-align: center;}
+        /* REMOVED .add-new-chapter-button styles as it's now a FAB */
+
+        .chapter-card {
+            background-color: var(--bg-content-card);
+            border-radius: var(--radius-standard);
+            margin-bottom: 16px;
+            box-shadow: var(--shadow-card);
+            padding: 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px; 
+        }
+        .chapter-card.important .chapter-card-title { color: var(--accent-primary); } 
+        .chapter-card-cover-placeholder {
+            width: 100%; height: 140px; background-color: #E8E8ED;
+            border-radius: var(--radius-medium);
+            display: flex; align-items: center; justify-content: center; font-style: italic; color: var(--text-secondary);
+        }
+        .chapter-card-title { font-size: 1.1rem; font-weight: 600; color: var(--text-primary); }
+        .chapter-card-date-range { font-size: 0.85rem; color: var(--text-secondary); }
+        .chapter-card-summary { font-size: 0.9rem; color: var(--text-secondary); line-height: 1.5; }
+        .chapter-card-footer { display: flex; justify-content: space-between; align-items: center; width: 100%; margin-top: 8px; }
+        .chapter-card-stats { font-size: 0.8rem; color: var(--text-secondary); }
+        .chapter-card-cta {
+            color: var(--accent-primary); text-decoration: none; font-weight: 600; font-size: 0.9rem;
+        }
+
+        /* ----- Tab 3: 幕后 (Our Space) Styles ----- */
+        .our-space-profile-header {
+            display: flex; flex-direction: column; align-items: center;
+            padding: 24px 20px; margin-bottom: 24px;
+            background-color: var(--bg-content-card);
+            border-radius: var(--radius-standard);
+            box-shadow: var(--shadow-card);
+            text-align: center;
+        }
+        .profile-avatars { display: flex; margin-bottom: 16px; }
+        .profile-avatars .avatar {
+            width: 72px; height: 72px; border-radius: 50%; background-color: #E8E8ED;
+            display: flex; align-items: center; justify-content: center; color: var(--text-secondary);
+            font-size: 2rem; font-weight: 500; border: 3px solid var(--bg-content-card); 
+        }
+        .profile-avatars .avatar:first-child { margin-right: -24px; z-index: 1; }
+        .profile-nicknames { font-size: 1.2rem; font-weight: 600; margin-bottom: 6px; }
+        .profile-duration { font-size: 0.9rem; color: var(--text-secondary); }
+
+        .settings-group { margin-bottom: 24px; }
+        .settings-group-title {
+            font-size: 0.8rem; font-weight: 600; text-transform: uppercase;
+            color: var(--text-secondary); margin-bottom: 12px; padding-left: 4px; 
+            letter-spacing: 0.5px;
+        }
+        .setting-item {
+            background-color: var(--bg-content-card);
+            padding: 16px; 
+            border-radius: var(--radius-medium); 
+            margin-bottom: 10px;
+            display: flex; justify-content: space-between; align-items: center;
+            cursor: pointer; transition: background-color 0.15s ease-out;
+            box-shadow: var(--shadow-card); 
+        }
+        .setting-item:hover { background-color: #F9F9FB; }
+        .setting-item-label { font-size: 1rem; font-weight: 500; }
+        .setting-item-action svg { width: 20px; height: 20px; fill: var(--accent-secondary); }
+        
+        .logout-button-container { margin-top: 32px; text-align: center; }
+        .logout-button {
+            background-color: transparent; color: #FF3B30; 
+            border: 1px solid #FF3B30; padding: 10px 28px; border-radius: var(--radius-pill);
+            font-size: 0.95rem; font-weight: 500; cursor: pointer; transition: background-color 0.2s, color 0.2s;
+        }
+        .logout-button:hover { background-color: #FF3B30; color: white; }
+
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <header class="app-header">
+            <h1 class="app-title" id="appTitle">PairScript</h1>
+        </header>
+
+        <main class="app-main-content" id="mainContent">
+            <div class="tab-content active" id="tabScriptContent">
+                <div class="chapters-page-header">
+                    <h2>我们的剧本</h2>
+                    <p>每一个重要的时刻，都值得被珍藏</p>
+                    </div>
+                <div class="script-card">
+                    <div class="script-card-header">
+                        <span class="script-card-date">2025年5月10日</span>
+                        <div class="script-card-meta">
+                            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"></path></svg>
+                            <span>海边</span>
+                            <svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 0110 2zM10 15.75a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5a.75.75 0 01.75-.75zM14.75 10a.75.75 0 01-.75.75h-1.5a.75.75 0 010-1.5h1.5a.75.75 0 01.75.75zM5.75 10a.75.75 0 01-.75.75h-1.5a.75.75 0 010-1.5h1.5a.75.75 0 01.75.75zM12.743 5.922a.75.75 0 011.06 1.06l-1.06 1.061a.75.75 0 01-1.061-1.06l1.06-1.06zM6.028 12.65a.75.75 0 10-1.061 1.06l1.061 1.061a.75.75 0 101.06-1.06l-1.06-1.061zM12.743 14.078a.75.75 0 01-1.06 1.06l-1.061-1.06a.75.75 0 111.06-1.061l1.061 1.06zM6.028 7.35a.75.75 0 00-1.06-1.061L3.907 7.35a.75.75 0 001.061 1.06L6.028 7.35z"></path><path fill-rule="evenodd" d="M10 7a3 3 0 100 6 3 3 0 000-6zm-1.5 3a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0z" clip-rule="evenodd"></path></svg>
+                            <span>晴朗</span>
+                        </div>
+                    </div>
+                    <div class="script-card-image-placeholder">黄昏下的金色沙滩 🏖️</div>
+                    <p class="script-card-text">夕阳把海面染成了金色，手牵手在沙滩上漫步，海风吹拂着头发，感觉时间都慢了下来。这一刻，世界只有我们俩。</p>
+                    <div class="script-card-tags">
+                        <span class="tag">#浪漫黄昏</span> <span class="tag">#海边</span> <span class="tag">#二人世界</span>
+                    </div>
+                    <div class="script-card-actions">
+                        <a href="#" class="action-button liked"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.28 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg><span>25</span></a>
+                        <a href="#" class="action-button"><svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zm-4 0H9v2h2V9z" clip-rule="evenodd"></path></svg><span>8</span></a>
+                    </div>
+                </div>
+                <div class="page-fab visible" id="scriptFabButton"> <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd"></path></svg>
+                </div>
+            </div>
+
+            <div class="tab-content" id="tabChaptersContent">
+                <div class="chapters-page-header">
+                    <h2>我们的章节</h2>
+                    <p>每一个重要的时刻，都值得被珍藏</p>
+                    </div>
+                <div class="chapter-card important">
+                    <div class="chapter-card-cover-placeholder">章节封面：北海道的雪 ❄️</div>
+                    <h3 class="chapter-card-title">第一次共同旅行：北海道雪国之旅</h3>
+                    <p class="chapter-card-date-range">2024年2月10日 - 2月17日</p>
+                    <p class="chapter-card-summary">白雪皑皑的世界，手心的温度，还有拉面和温泉的治愈。这是我们故事里，最浪漫的冬日篇章。</p>
+                    <div class="chapter-card-footer">
+                        <span class="chapter-card-stats">共 25 个瞬间</span>
+                        <a href="#" class="chapter-card-cta">回顾本章 ></a>
+                    </div>
+                </div>
+                <div class="page-fab" id="chaptersFabButton"> <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd"></path></svg>
+                </div>
+            </div>
+
+            <div class="tab-content" id="tabOurSpaceContent">
+                 <div class="our-space-profile-header">
+                    <div class="profile-avatars">
+                        <div class="avatar">星</div> <div class="avatar">月</div>
+                    </div>
+                    <div class="profile-nicknames">星辰 & 月光</div>
+                    <p class="profile-duration">已共同书写 730 天的 PairScript</p>
+                </div>
+                <div class="settings-group">
+                    <h4 class="settings-group-title">恋爱设定</h4>
+                    <div class="setting-item">
+                        <span class="setting-item-label">重要纪念日</span>
+                        <span class="setting-item-action"><svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path></svg></span>
+                    </div>
+                </div>
+                 <div class="settings-group">
+                    <h4 class="settings-group-title">应用设置</h4>
+                    <div class="setting-item">
+                        <span class="setting-item-label">外观与主题</span>
+                        <span class="setting-item-action"><svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path></svg></span>
+                    </div>
+                </div>
+                <div class="logout-button-container">
+                    <button class="logout-button">解除绑定</button>
+                </div>
+            </div>
+        </main>
+
+        <nav class="app-tab-bar">
+            <a href="#" class="tab-item active" data-tab="tabScriptContent">
+                <svg fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z"></path><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd"></path></svg>
+                <span class="tab-label">剧本</span>
+            </a>
+            <a href="#" class="tab-item" data-tab="tabChaptersContent">
+                <svg fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z"></path></svg>
+                <span class="tab-label">章节</span>
+            </a>
+            <a href="#" class="tab-item" data-tab="tabOurSpaceContent">
+                 <svg fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0012 11z" clip-rule="evenodd"></path></svg>
+                <span class="tab-label">我们</span>
+            </a>
+        </nav>
+    </div>
+
+    <script>
+        const tabItems = document.querySelectorAll('.tab-item');
+        const tabContents = document.querySelectorAll('.tab-content');
+        const appTitle = document.getElementById('appTitle');
+        const scriptFabButton = document.getElementById('scriptFabButton'); // FAB for Script tab
+        const chaptersFabButton = document.getElementById('chaptersFabButton'); // FAB for Chapters tab
+
+        function switchTab(targetTabId) {
+            tabItems.forEach(item => item.classList.remove('active'));
+            tabContents.forEach(content => content.style.display = 'none');
+
+            const activeTabItem = document.querySelector(`.tab-item[data-tab="${targetTabId}"]`);
+            const activeTabContent = document.getElementById(targetTabId);
+
+            if (activeTabItem) activeTabItem.classList.add('active');
+            if (activeTabContent) activeTabContent.style.display = 'block';
+            
+            if (activeTabContent) document.querySelector('.app-main-content').scrollTop = 0;
+
+            // Reset FAB visibility
+            if(scriptFabButton) scriptFabButton.classList.remove('visible');
+            if(chaptersFabButton) chaptersFabButton.classList.remove('visible');
+
+            // Update header title and show relevant FAB
+            if (targetTabId === 'tabScriptContent') {
+                appTitle.textContent = 'PairScript';
+                if(scriptFabButton) scriptFabButton.classList.add('visible'); 
+            } else if (targetTabId === 'tabChaptersContent') {
+                appTitle.textContent = '我们的章节';
+                if(chaptersFabButton) chaptersFabButton.classList.add('visible');
+            } else if (targetTabId === 'tabOurSpaceContent') {
+                appTitle.textContent = '我们的空间';
+                // No FAB for "Our Space" tab in this version
+            }
+        }
+
+        tabItems.forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+                switchTab(item.dataset.tab);
+            });
+        });
+        
+        // Initialize first tab
+        switchTab('tabScriptContent');
+    </script>
+
+</body>
+</html>
